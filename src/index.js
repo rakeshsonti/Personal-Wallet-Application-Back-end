@@ -226,7 +226,7 @@ app.get("/alltransactions", async (req, res) => {
          ["createdAt", "ASC"],
       ],
    });
-   console.log("all transaction:", all_transactions);
+   // console.log("all transaction:", all_transactions);
    res.send(all_transactions);
 });
 //as assignment suggest to create this end point
