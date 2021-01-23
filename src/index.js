@@ -11,7 +11,6 @@ app.use(
    })
 );
 const { Sequelize, DataTypes } = require("sequelize");
-const { all } = require("sequelize/types/lib/operators");
 const connectionStr = `postgres://khnssbcwsnxahq:a18827ef3b88563ef5092f0faa5124b46c91559164e2c10914240784212aaa93@ec2-50-19-247-157.compute-1.amazonaws.com:5432/dev8dm2i0dmjne
 `;
 const db = new Sequelize(connectionStr, {
@@ -23,7 +22,7 @@ const db = new Sequelize(connectionStr, {
       },
    },
 });
-const Personal_Wallet = db.define("personal_wallet", {
+const Personal_Wallet = db.define("personal_wallet2", {
    user_id: {
       type: DataTypes.UUID,
       defaultValue: Sequelize.UUIDV4,
@@ -40,7 +39,7 @@ const Personal_Wallet = db.define("personal_wallet", {
       type: DataTypes.INTEGER,
    },
 });
-const Transactions = db.define("transactions", {
+const Transactions = db.define("transactions2", {
    user_id: {
       type: DataTypes.UUID,
       references: {
@@ -54,6 +53,7 @@ const Transactions = db.define("transactions", {
    amount: DataTypes.INTEGER,
    final_balance: DataTypes.INTEGER,
    remarks: DataTypes.STRING,
+   name: DataTypes.STRING,
    transaction_id: {
       type: DataTypes.UUID,
       defaultValue: Sequelize.UUIDV4,
@@ -61,22 +61,30 @@ const Transactions = db.define("transactions", {
    },
 });
 app.post("/user", async (req, res) => {
-   const { username, phone, balance } = req.body;
+   const { username, phone, amount } = req.body;
+   const balance = Number(amount) * 100;
    const newUser = await Personal_Wallet.create({
       username: username,
       phone: phone,
       balance: Number(balance),
    });
-   // console.log("new user:", newUser);
-   res.send(newUser);
+   //update this transaction into transaction table
+   const trans = await Transactions.create({
+      user_id: newUser.user_id,
+      transaction_type: "add_funds",
+      trans_date: new Date(),
+      initial_balance: Number(0),
+      amount: Number(balance),
+      final_balance: Number(balance),
+      remarks: "Done",
+      name: username,
+   });
+   res.send("new user registered successfully");
 });
 //for testing purpose
-app.get("/all", async (req, res) => {
-   console.log("-------------------------aaya------------------------");
-   const { name } = req.query;
-   const user = await Personal_Wallet.findOne({
-      where: { username: name },
-      // attributes: ["balance"],
+app.get("/names", async (req, res) => {
+   const user = await Personal_Wallet.findAll({
+      attributes: ["user_id", "username"],
    });
    res.send(user);
 });
@@ -86,13 +94,11 @@ app.get("/balance", async (req, res) => {
       where: { user_id: user_id },
       attributes: ["balance"],
    });
-   console.log(bal);
    res.send(bal);
 });
 app.put("/addfunds", async (req, res) => {
    const { user_id, amount } = req.body;
    let error = false;
-   // console.log("type", amount);
    const str = amount.toString();
    let num_arr = str.split(".");
    const len = num_arr.length;
@@ -118,9 +124,8 @@ app.put("/addfunds", async (req, res) => {
       //find users previous balance
       const bal = await Personal_Wallet.findOne({
          where: { user_id: user_id },
-         attributes: ["balance"],
+         attributes: ["balance", "username"],
       });
-      // console.log("balance -:", bal.balance);
       const final_amount = Number(user_amount) + Number(bal.balance);
       const updateUser = await Personal_Wallet.update(
          {
@@ -139,8 +144,8 @@ app.put("/addfunds", async (req, res) => {
          amount: Number(user_amount),
          final_balance: Number(final_amount),
          remarks: "Done",
+         name: bal.username,
       });
-      // console.log("update user: ", updateUser);
       res.send({ updated: `user updated amount ${final_amount} ` });
    }
 });
@@ -148,7 +153,6 @@ app.put("/addfunds", async (req, res) => {
 app.put("/spendfunds", async (req, res) => {
    const { user_id, amount } = req.body;
    let error = false;
-   // console.log("type", amount);
    const str = amount.toString();
    let num_arr = str.split(".");
    const len = num_arr.length;
@@ -174,7 +178,7 @@ app.put("/spendfunds", async (req, res) => {
       //find users previous balance
       const bal = await Personal_Wallet.findOne({
          where: { user_id: user_id },
-         attributes: ["balance"],
+         attributes: ["balance", "username"],
       });
       const final_amount = Number(bal.balance) - Number(user_amount);
       if (final_amount < 0) {
@@ -200,6 +204,7 @@ app.put("/spendfunds", async (req, res) => {
             amount: Number(user_amount),
             final_balance: Number(final_amount),
             remarks: "Done",
+            name: bal.username,
          });
          res.send({ updated: `user updated amount ${final_amount} ` });
       }
@@ -214,13 +219,14 @@ app.get("/alltransactions", async (req, res) => {
          "amount",
          "final_balance",
          "transaction_type",
+         "name",
       ],
       order: [
          ["user_id", "ASC"],
          ["createdAt", "ASC"],
       ],
    });
-   // console.log(all_transactions);
+   console.log("all transaction:", all_transactions);
    res.send(all_transactions);
 });
 //as assignment suggest to create this end point
@@ -233,6 +239,7 @@ app.get("/transactions", async (req, res) => {
          "amount",
          "final_balance",
          "transaction_type",
+         "name",
       ],
       order: [
          ["user_id", "ASC"],
@@ -249,7 +256,6 @@ app.get("/allwallets", async (req, res) => {
       attributes: ["user_id", "username", "phone", "balance"],
       order: [["updatedAt", "DESC"]],
    });
-   console.log("alll:", all_wallets);
    res.send(all_wallets);
 });
 db.sync()
