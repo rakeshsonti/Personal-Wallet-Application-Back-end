@@ -173,7 +173,7 @@ app.put("/spendfunds", async (req, res) => {
       }
    }
    if (error) {
-      res.status(401).send({ err: "invalid amount" });
+      res.status(406).send({ err: "invalid amount" });
    } else {
       //find users previous balance
       const bal = await Personal_Wallet.findOne({
@@ -183,7 +183,7 @@ app.put("/spendfunds", async (req, res) => {
       const final_amount = Number(bal.balance) - Number(user_amount);
       if (final_amount < 0) {
          // user cannot spend more than what she has in balance
-         res.status(401).send({
+         res.status(406).send({
             err: "cannot spend more than current balance",
          });
       } else {
